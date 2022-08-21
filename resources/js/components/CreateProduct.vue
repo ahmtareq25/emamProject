@@ -7,14 +7,17 @@
                         <div class="form-group">
                             <label for="">Product Name</label>
                             <input type="text" v-model="product_name" placeholder="Product Name" class="form-control">
+                            <p v-if="errors.title" class="invalid-feedback d-block">{{errors.title[0]}}</p>
                         </div>
                         <div class="form-group">
                             <label for="">Product SKU</label>
                             <input type="text" v-model="product_sku" placeholder="Product Name" class="form-control">
+                            <p v-if="errors.sku" class="invalid-feedback d-block">{{errors.sku[0]}}</p>
                         </div>
                         <div class="form-group">
                             <label for="">Description</label>
                             <textarea v-model="description" id="" cols="30" rows="4" class="form-control"></textarea>
+                            <p v-if="errors.description" class="invalid-feedback d-block">{{errors.description[0]}}</p>
                         </div>
                     </div>
                 </div>
@@ -24,7 +27,16 @@
                         <h6 class="m-0 font-weight-bold text-primary">Media</h6>
                     </div>
                     <div class="card-body border">
-                        <vue-dropzone ref="myVueDropzone" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
+                        <vue-dropzone ref="myVueDropzone" id="dropzone" :options="dropzoneOptions" @vdropzone-success="uploadSuccess"></vue-dropzone>
+
+                    </div>
+
+
+                </div>
+                <div class="row">
+                    <div v-for="(product_img, index) in product_images" class="col-3" style="position: relative">
+                        <img :src="product_img.full_url" class="img-thumbnail" alt="">
+                        <button @click="deleteImage(product_img, index)" class="btn btn-sm btn-outline-danger" style="position: absolute;top: 24px; left: 10%">X</button>
                     </div>
                 </div>
             </div>
@@ -45,6 +57,7 @@
                                             {{ variant.title }}
                                         </option>
                                     </select>
+
                                 </div>
                             </div>
                             <div class="col-md-8">
@@ -57,9 +70,13 @@
                                 </div>
                             </div>
                         </div>
+
                     </div>
+
                     <div class="card-footer" v-if="product_variant.length < variants.length && product_variant.length < 3">
                         <button @click="newVariant" class="btn btn-primary">Add another option</button>
+                        <p v-if="errors.product_variant" class="invalid-feedback d-block">{{errors.product_variant[0]}}</p>
+
                     </div>
 
                     <div class="card-header text-uppercase">Preview</div>
@@ -86,12 +103,17 @@
                                 </tbody>
                             </table>
                         </div>
+                        <p v-if="errors.product_variant_prices" class="invalid-feedback d-block">{{errors.product_variant_prices[0]}}</p>
+
                     </div>
                 </div>
             </div>
         </div>
-
-        <button @click="saveProduct" type="submit" class="btn btn-lg btn-primary">Save</button>
+        <div v-if="status_description" class="alert" :class="alert_class" role="alert">
+            {{ status_description }}
+        </div>
+        <button v-if="is_save" @click="saveProduct" type="submit" class="btn btn-lg btn-primary">Save</button>
+        <button v-if="!is_save" @click="updateProduct" type="submit" class="btn btn-lg btn-primary">Update</button>
         <button type="button" class="btn btn-secondary btn-lg">Cancel</button>
     </section>
 </template>
@@ -110,10 +132,23 @@ export default {
         variants: {
             type: Array,
             required: true
+        },
+        product : {
+            type:Object
+        },
+        product_variants : {
+            type:Array
+        },
+        product_variant_price :{
+            type:Array
+        },
+        product_image_list:{
+            type:Array
         }
     },
     data() {
         return {
+            product_id: '',
             product_name: '',
             product_sku: '',
             description: '',
@@ -125,12 +160,20 @@ export default {
                 }
             ],
             product_variant_prices: [],
+            product_images:[],
             dropzoneOptions: {
-                url: 'https://httpbin.org/post',
+                url: '/upload',
                 thumbnailWidth: 150,
                 maxFilesize: 0.5,
-                headers: {"My-Awesome-Header": "header value"}
-            }
+                headers: {
+                    "X-CSRF-TOKEN": document.head.querySelector("[name=csrf-token]").content
+                }
+            },
+            errors : {},
+            status_code : '',
+            status_description:'',
+            alert_class:'alert-success',
+            is_save:true
         }
     },
     methods: {
@@ -170,6 +213,7 @@ export default {
             if (!arr.length) {
                 return pre;
             }
+            console.log(arr[0]);
             let self = this;
             let ans = arr[0].reduce(function (ans, value) {
                 return ans.concat(self.getCombn(arr.slice(1), pre + value + '/'));
@@ -179,7 +223,29 @@ export default {
 
         // store product into database
         saveProduct() {
-            let product = {
+            let product = this.getProduct()
+
+            this.errors = {};
+            axios.post('/product', product).then(response => {
+                this.status_description = response.data.status_description;
+                this.alert_class ='alert-success';
+                window.setTimeout(function() {
+                    location.reload();
+                }, 3000);
+            }).catch(error => {
+                this.errors = error.response.data.errors;
+                this.alert_class ='alert-danger'
+                this.status_description =error.response.data.status_description
+
+            })
+
+        },
+        uploadSuccess(file, response) {
+            this.images.push(response.data.path)
+            console.log(this.images)
+        },
+        getProduct(){
+            return {
                 title: this.product_name,
                 sku: this.product_sku,
                 description: this.description,
@@ -187,20 +253,55 @@ export default {
                 product_variant: this.product_variant,
                 product_variant_prices: this.product_variant_prices
             }
-
-
-            axios.post('/product', product).then(response => {
-                console.log(response.data);
+        },
+        deleteImage(product_img, index){
+            console.log(product_img, this.product_images);
+            axios.post('/delete/product/image/'+product_img.id).then(response => {
+                this.status_description = response.data.status_description;
+                this.alert_class ='alert-success';
+                this.product_images.splice(index, 1);
             }).catch(error => {
-                console.log(error);
-            })
+                this.alert_class ='alert-danger'
+                this.status_description =error.response.data.status_description
 
-            console.log(product);
+            })
+        },
+        updateProduct(){
+            let product = this.getProduct()
+
+            this.errors = {};
+            axios.put('/product/'+this.product_id, product).then(response => {
+                this.status_description = response.data.status_description;
+                this.alert_class ='alert-success';
+                window.setTimeout(function() {
+                    location.reload();
+                }, 3000);
+            }).catch(error => {
+                this.errors = error.response.data.errors;
+                this.alert_class ='alert-danger'
+                this.status_description =error.response.data.status_description
+
+            })
         }
 
 
     },
     mounted() {
+
+        let props = this.$props;
+        let productObj = props?.product;
+
+        if (productObj){
+            this.product_id = productObj.id;
+            this.product_name =productObj.title;
+            this.product_sku =productObj.sku;
+            this.description =productObj.description;
+            this.product_variant = props?.product_variants;
+            this.product_variant_prices = props?.product_variant_price;
+            this.product_images = props?.product_image_list
+            this.is_save = false
+        }
+
         console.log('Component mounted.')
     }
 }

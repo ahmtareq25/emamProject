@@ -26,4 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('product', 'ProductController');
     Route::resource('blog', 'BlogController');
     Route::resource('blog-category', 'BlogCategoryController');
+
+    Route::post('upload', 'FileUploadController@upload')->name('file.upload');
+    Route::post('delete/product/image/{id}', 'ProductImageController@remove')->name('remove.product.image');
 });
