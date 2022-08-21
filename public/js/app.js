@@ -2012,6 +2012,28 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -2024,10 +2046,23 @@ __webpack_require__.r(__webpack_exports__);
     variants: {
       type: Array,
       required: true
+    },
+    product: {
+      type: Object
+    },
+    product_variants: {
+      type: Array
+    },
+    product_variant_price: {
+      type: Array
+    },
+    product_image_list: {
+      type: Array
     }
   },
   data: function data() {
     return {
+      product_id: '',
       product_name: '',
       product_sku: '',
       description: '',
@@ -2037,14 +2072,20 @@ __webpack_require__.r(__webpack_exports__);
         tags: []
       }],
       product_variant_prices: [],
+      product_images: [],
       dropzoneOptions: {
-        url: 'https://httpbin.org/post',
+        url: '/upload',
         thumbnailWidth: 150,
         maxFilesize: 0.5,
         headers: {
-          "My-Awesome-Header": "header value"
+          "X-CSRF-TOKEN": document.head.querySelector("[name=csrf-token]").content
         }
-      }
+      },
+      errors: {},
+      status_code: '',
+      status_description: '',
+      alert_class: 'alert-success',
+      is_save: true
     };
   },
   methods: {
@@ -2092,6 +2133,7 @@ __webpack_require__.r(__webpack_exports__);
         return pre;
       }
 
+      console.log(arr[0]);
       var self = this;
       var ans = arr[0].reduce(function (ans, value) {
         return ans.concat(self.getCombn(arr.slice(1), pre + value + '/'));
@@ -2100,7 +2142,28 @@ __webpack_require__.r(__webpack_exports__);
     },
     // store product into database
     saveProduct: function saveProduct() {
-      var product = {
+      var _this2 = this;
+
+      var product = this.getProduct();
+      this.errors = {};
+      axios.post('/product', product).then(function (response) {
+        _this2.status_description = response.data.status_description;
+        _this2.alert_class = 'alert-success';
+        window.setTimeout(function () {
+          location.reload();
+        }, 3000);
+      })["catch"](function (error) {
+        _this2.errors = error.response.data.errors;
+        _this2.alert_class = 'alert-danger';
+        _this2.status_description = error.response.data.status_description;
+      });
+    },
+    uploadSuccess: function uploadSuccess(file, response) {
+      this.images.push(response.data.path);
+      console.log(this.images);
+    },
+    getProduct: function getProduct() {
+      return {
         title: this.product_name,
         sku: this.product_sku,
         description: this.description,
@@ -2108,15 +2171,54 @@ __webpack_require__.r(__webpack_exports__);
         product_variant: this.product_variant,
         product_variant_prices: this.product_variant_prices
       };
-      axios.post('/product', product).then(function (response) {
-        console.log(response.data);
+    },
+    deleteImage: function deleteImage(product_img, index) {
+      var _this3 = this;
+
+      console.log(product_img, this.product_images);
+      axios.post('/delete/product/image/' + product_img.id).then(function (response) {
+        _this3.status_description = response.data.status_description;
+        _this3.alert_class = 'alert-success';
+
+        _this3.product_images.splice(index, 1);
       })["catch"](function (error) {
-        console.log(error);
+        _this3.alert_class = 'alert-danger';
+        _this3.status_description = error.response.data.status_description;
       });
-      console.log(product);
+    },
+    updateProduct: function updateProduct() {
+      var _this4 = this;
+
+      var product = this.getProduct();
+      this.errors = {};
+      axios.put('/product/' + this.product_id, product).then(function (response) {
+        _this4.status_description = response.data.status_description;
+        _this4.alert_class = 'alert-success';
+        window.setTimeout(function () {
+          location.reload();
+        }, 3000);
+      })["catch"](function (error) {
+        _this4.errors = error.response.data.errors;
+        _this4.alert_class = 'alert-danger';
+        _this4.status_description = error.response.data.status_description;
+      });
     }
   },
   mounted: function mounted() {
+    var props = this.$props;
+    var productObj = props === null || props === void 0 ? void 0 : props.product;
+
+    if (productObj) {
+      this.product_id = productObj.id;
+      this.product_name = productObj.title;
+      this.product_sku = productObj.sku;
+      this.description = productObj.description;
+      this.product_variant = props === null || props === void 0 ? void 0 : props.product_variants;
+      this.product_variant_prices = props === null || props === void 0 ? void 0 : props.product_variant_price;
+      this.product_images = props === null || props === void 0 ? void 0 : props.product_image_list;
+      this.is_save = false;
+    }
+
     console.log('Component mounted.');
   }
 });
@@ -50500,7 +50602,13 @@ var render = function() {
                     _vm.product_name = $event.target.value
                   }
                 }
-              })
+              }),
+              _vm._v(" "),
+              _vm.errors.title
+                ? _c("p", { staticClass: "invalid-feedback d-block" }, [
+                    _vm._v(_vm._s(_vm.errors.title[0]))
+                  ])
+                : _vm._e()
             ]),
             _vm._v(" "),
             _c("div", { staticClass: "form-group" }, [
@@ -50526,7 +50634,13 @@ var render = function() {
                     _vm.product_sku = $event.target.value
                   }
                 }
-              })
+              }),
+              _vm._v(" "),
+              _vm.errors.sku
+                ? _c("p", { staticClass: "invalid-feedback d-block" }, [
+                    _vm._v(_vm._s(_vm.errors.sku[0]))
+                  ])
+                : _vm._e()
             ]),
             _vm._v(" "),
             _c("div", { staticClass: "form-group" }, [
@@ -50552,7 +50666,13 @@ var render = function() {
                     _vm.description = $event.target.value
                   }
                 }
-              })
+              }),
+              _vm._v(" "),
+              _vm.errors.description
+                ? _c("p", { staticClass: "invalid-feedback d-block" }, [
+                    _vm._v(_vm._s(_vm.errors.description[0]))
+                  ])
+                : _vm._e()
             ])
           ])
         ]),
@@ -50566,12 +50686,49 @@ var render = function() {
             [
               _c("vue-dropzone", {
                 ref: "myVueDropzone",
-                attrs: { id: "dropzone", options: _vm.dropzoneOptions }
+                attrs: { id: "dropzone", options: _vm.dropzoneOptions },
+                on: { "vdropzone-success": _vm.uploadSuccess }
               })
             ],
             1
           )
-        ])
+        ]),
+        _vm._v(" "),
+        _c(
+          "div",
+          { staticClass: "row" },
+          _vm._l(_vm.product_images, function(product_img, index) {
+            return _c(
+              "div",
+              { staticClass: "col-3", staticStyle: { position: "relative" } },
+              [
+                _c("img", {
+                  staticClass: "img-thumbnail",
+                  attrs: { src: product_img.full_url, alt: "" }
+                }),
+                _vm._v(" "),
+                _c(
+                  "button",
+                  {
+                    staticClass: "btn btn-sm btn-outline-danger",
+                    staticStyle: {
+                      position: "absolute",
+                      top: "24px",
+                      left: "10%"
+                    },
+                    on: {
+                      click: function($event) {
+                        return _vm.deleteImage(product_img, index)
+                      }
+                    }
+                  },
+                  [_vm._v("X")]
+                )
+              ]
+            )
+          }),
+          0
+        )
       ]),
       _vm._v(" "),
       _c("div", { staticClass: "col-md-6" }, [
@@ -50689,7 +50846,13 @@ var render = function() {
                     on: { click: _vm.newVariant }
                   },
                   [_vm._v("Add another option")]
-                )
+                ),
+                _vm._v(" "),
+                _vm.errors.product_variant
+                  ? _c("p", { staticClass: "invalid-feedback d-block" }, [
+                      _vm._v(_vm._s(_vm.errors.product_variant[0]))
+                    ])
+                  : _vm._e()
               ])
             : _vm._e(),
           _vm._v(" "),
@@ -50768,21 +50931,53 @@ var render = function() {
                   0
                 )
               ])
-            ])
+            ]),
+            _vm._v(" "),
+            _vm.errors.product_variant_prices
+              ? _c("p", { staticClass: "invalid-feedback d-block" }, [
+                  _vm._v(_vm._s(_vm.errors.product_variant_prices[0]))
+                ])
+              : _vm._e()
           ])
         ])
       ])
     ]),
     _vm._v(" "),
-    _c(
-      "button",
-      {
-        staticClass: "btn btn-lg btn-primary",
-        attrs: { type: "submit" },
-        on: { click: _vm.saveProduct }
-      },
-      [_vm._v("Save")]
-    ),
+    _vm.status_description
+      ? _c(
+          "div",
+          {
+            staticClass: "alert",
+            class: _vm.alert_class,
+            attrs: { role: "alert" }
+          },
+          [_vm._v("\n        " + _vm._s(_vm.status_description) + "\n    ")]
+        )
+      : _vm._e(),
+    _vm._v(" "),
+    _vm.is_save
+      ? _c(
+          "button",
+          {
+            staticClass: "btn btn-lg btn-primary",
+            attrs: { type: "submit" },
+            on: { click: _vm.saveProduct }
+          },
+          [_vm._v("Save")]
+        )
+      : _vm._e(),
+    _vm._v(" "),
+    !_vm.is_save
+      ? _c(
+          "button",
+          {
+            staticClass: "btn btn-lg btn-primary",
+            attrs: { type: "submit" },
+            on: { click: _vm.updateProduct }
+          },
+          [_vm._v("Update")]
+        )
+      : _vm._e(),
     _vm._v(" "),
     _c(
       "button",
@@ -63300,8 +63495,8 @@ __webpack_require__.r(__webpack_exports__);
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! /home/rifat/Programming/mediusware/interview/interview-question-sr/resources/js/app.js */"./resources/js/app.js");
-module.exports = __webpack_require__(/*! /home/rifat/Programming/mediusware/interview/interview-question-sr/resources/sass/app.scss */"./resources/sass/app.scss");
+__webpack_require__(/*! C:\xampp\htdocs\examProject\resources\js\app.js */"./resources/js/app.js");
+module.exports = __webpack_require__(/*! C:\xampp\htdocs\examProject\resources\sass\app.scss */"./resources/sass/app.scss");
 
 
 /***/ })
